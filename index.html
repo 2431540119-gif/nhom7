@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Chương 5 Lab: Multi-Client, Broadcast &amp; MQTT Collaborative Whiteboard</title>
   <!-- Nhúng thư viện MQTT.js qua CDN -->
-  <script src="Ch%C6%B0%C6%A1ng%205%20Lab_%20Multi-Client,%20Broadcast%20&amp;%20MQTT%20Collaborative%20Whiteboard_files/mqtt.min_Y_g5.js"></script>
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
   <style>
     :root {
       --bg-main: #0f172a;
@@ -155,8 +155,7 @@
         <div class="canvas-container">
           <canvas id="mqttAnimCanvas" width="900" height="260" style="max-width: 900px; height: 260px;"></canvas>
         </div>
-        <div id="mqttAnimText" style="text-align: center; font-size: 0.85rem; color: var(--accent-green); font-weight: 600;">Mô phỏng MQTT Pub/Sub: Publisher gửi tin lên Broker $
-ightarrow$ Broker phân phối xuống các Subscribers.</div>
+        <div id="mqttAnimText" style="text-align: center; font-size: 0.85rem; color: var(--accent-green); font-weight: 600;">Mô phỏng MQTT Pub/Sub: Publisher gửi tin lên Broker $ightarrow$ Broker phân phối xuống các Subscribers.</div>
       </div>
 
       <div class="grid-2">
@@ -545,8 +544,11 @@ ightarrow$ Broker phân phối xuống các Subscribers.</div>
       });
     }
 
-    const client = mqtt.connect('wss://broker.hivemq.com:8884/mqtt', { clientId: myId });
+    const client = typeof mqtt !== 'undefined'
+      ? mqtt.connect('wss://broker.hivemq.com:8884/mqtt', { clientId: myId })
+      : null;
 
+    if (client) {
     client.on('connect', () => {
       logNet('Đã kết nối thành công tới Public MQTT Broker!');
       document.getElementById('connStatus').textContent = 'Đã kết nối';
@@ -585,6 +587,12 @@ ightarrow$ Broker phân phối xuống các Subscribers.</div>
         console.error(e);
       }
     });
+    } else {
+      const status = document.getElementById('connStatus');
+      status.textContent = 'Vẽ ngoại tuyến';
+      status.className = 'badge badge-amber';
+      logNet('Không tải được MQTT.js; bảng vẽ vẫn hoạt động ngoại tuyến.');
+    }
 
     function getCursorPos(e) {
       const rect = canvas.getBoundingClientRect();
@@ -597,8 +605,8 @@ ightarrow$ Broker phân phối xuống các Subscribers.</div>
         clientY = e.clientY;
       }
       return {
-        x: clientX - rect.left,
-        y: clientY - rect.top
+        x: (clientX - rect.left) * canvas.width / rect.width,
+        y: (clientY - rect.top) * canvas.height / rect.height
       };
     }
 
@@ -620,7 +628,7 @@ ightarrow$ Broker phân phối xuống các Subscribers.</div>
 
       drawLine(lastX, lastY, currentX, currentY, currentColor, size);
 
-      if (client.connected) {
+      if (client && client.connected) {
         const packet = JSON.stringify({
           sender: myId,
           type: 'draw',
@@ -669,7 +677,7 @@ ightarrow$ Broker phân phối xuống các Subscribers.</div>
 
     function clearBoard() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      if (client.connected) {
+      if (client && client.connected) {
         client.publish(topicName, JSON.stringify({ sender: myId, type: 'clear' }));
       }
       logNet('Bạn đã gửi lệnh xóa toàn bộ bảng vẽ.');
